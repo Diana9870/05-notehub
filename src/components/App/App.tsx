@@ -1,12 +1,7 @@
 import { useState } from "react";
-import {
-  keepPreviousData,
-  useMutation,
-  useQuery,
-  useQueryClient,
-} from "@tanstack/react-query";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { useDebouncedCallback } from "use-debounce";
-import { deleteNote, fetchNotes } from "../../services/noteService";
+import { fetchNotes } from "../../services/noteService";
 import ErrorMessage from "../ErrorMessage/ErrorMessage";
 import Loader from "../Loader/Loader";
 import Modal from "../Modal/Modal";
@@ -19,8 +14,6 @@ import css from "./App.module.css";
 const PER_PAGE = 12;
 
 export default function App() {
-  const queryClient = useQueryClient();
-
   const [page, setPage] = useState(1);
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
@@ -37,29 +30,16 @@ export default function App() {
     placeholderData: keepPreviousData,
   });
 
-  const deleteMutation = useMutation({
-    mutationFn: deleteNote,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["notes"] });
-    },
-  });
-
   const notes = data?.notes ?? [];
   const totalPages = data?.totalPages ?? 0;
+
+  if (data && totalPages > 0 && page > totalPages) {
+    setPage(totalPages);
+  }
 
   const handleSearch = (value: string) => {
     setSearchInput(value);
     debouncedSearch(value);
-  };
-
-  const handleDelete = (id: string) => {
-    deleteMutation.mutate(id, {
-      onSuccess: () => {
-        if (notes.length === 1 && page > 1) {
-          setPage(page - 1);
-        }
-      },
-    });
   };
 
   const openModal = () => setIsModalOpen(true);
@@ -83,15 +63,11 @@ export default function App() {
         </button>
       </header>
 
-      {(isLoading || isFetching || deleteMutation.isPending) && <Loader />}
+      {(isLoading || isFetching) && <Loader />}
 
       {isError && <ErrorMessage message="Не вдалося завантажити нотатки." />}
 
-      {deleteMutation.isError && (
-        <ErrorMessage message="Не вдалося видалити нотатку." />
-      )}
-
-      {notes.length > 0 && <NoteList notes={notes} onDelete={handleDelete} />}
+      {notes.length > 0 && <NoteList notes={notes} />}
 
       {isModalOpen && (
         <Modal onClose={closeModal}>
